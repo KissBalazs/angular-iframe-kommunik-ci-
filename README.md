@@ -115,7 +115,7 @@ export class AppComponent {
 
 ```
 
-### Iframe kód:
+### 2. Iframe JavaScript:
 
 - Ezek a kódok bele vannak definiálva az én konkrét példámnál egy önmagát egyszer meghívó függvénybe. 
 - window.onload azért kell, mert jQuery segítségével hallgatóztam az iframe által elküldött XMLHTTPRequest-ekre.
@@ -131,7 +131,7 @@ export class AppComponent {
 
     $(document).ajaxComplete(function(event, request, settings){
       if(request.responseJSON.notification.status.toLowerCase() === 'completed'	){
-        console.log("Completed message detected, contacting frontend with the message...");
+        console.log("Completed status response detected, contacting frontend with the message...");
         sendDataToParent("code_1_document_created");
       }
     });
