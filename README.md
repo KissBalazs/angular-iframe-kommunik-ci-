@@ -60,7 +60,7 @@ TS:
 - Indulás után nekilátunk pollozni az iframe-et. 
   - Mivel ez nem "igazi" pollozás, hanem valójában csak egy Message queue-ba "levél-feladás", így nekünk kell megírni azt, hogy válaszoljon rá az iframe.
   - **Csak az általunk definiált message-re** állítsuk le a pollozást, mert egyébként jön más üzenet is, amit még nem az iframe-en belül szereplő app küld.
-    - Ezt nem teljesen vágtam én sem, de jött egy "WebpackREADY" vagy valami hasonló üzenet elsőnek mindig, de ekkor még nem futott az iframe-en belül semmi. Az a tippem, hogy keretrendszerek esetén (iframe-en belül a jQuery) ezek küldözgetnek ilyen üzenetet mindenkinek a biztonság kedvéért... passz.   
+    - Pl. nálam a Webpack DEV szerver küld egy "WebpackOK" üzenetet induláskor. Ezt ugye nyilván nem az iframe küldi, mégis becsorog az üzenetfigyelő függvénybe: az ilyenekre fel kell készülni.  
 ```JS
 @Component({
   selector: 'app-root',
