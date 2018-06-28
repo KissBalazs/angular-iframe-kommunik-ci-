@@ -1,61 +1,175 @@
-# KofaxEmbedTest
+# Angular - iframe kommunikáció by Forest
 
-# Futtatás
-`ng serve`
-`ng serve --port 1337`
+## Feladat:
+Adott egy **Angular** alkalmazás, ami tartalmaz egy `<iframe/>`-et, amely mögött egy külön domainen található alkalmazás fut.
+A feladat: a szülő app és az `iframe`-be **beágyazott** alkalmazás között valósítsunk meg kommunikációt.
 
-# Telepítés
-Szükség van egy kofax iframe url-re. Legegyszerűbben így tudod megszerezni:
-1. Vizmu dev megnyitása: `http://192.168.62.110:8003/`
-2. Új létrehozása / Új dokumentum
-3. Kötelező mezők kitöltése, "Rendben" gomb
-4. Dokument előállítása folyamatban töltőképernyőt megvárni
-5. Ha betöltött az iframe, F12 vagy CTRL + SHIFT + i
-6. Kikeresed az iframe-et az "Elements" fülön 
-7. kimásolod az src url-t 
-8. az angular app "Kofax iframe URL" részébe beilleszted  
-    - VAGY: az app.component.ts-ben átírod az `url` változót
+**Miért nehéz ez?** 
+Mert az Angular alkalmazás és az iframe nem egy domain-en vannak. A [Same Origin Scripting Policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) 
+miatt nem tudnak közvetlenül kommunikálni. Emiatt egy kommunikációs hidat építünk fel, a [window.postMessage()](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) 
+segítségével a **böngészőn keresztül** a következőképp:
 
-Ilyesmit keress:
-```
-<iframe src="http://192.168.62.91:8081/start/doxshare/doxshare.html
-?workflowid=workflow_camunda%7Ckofax%7Cac5eda7b-7a06-11e8-8c3d-0242ac110009
-&amp;sessionid=14488c34eefab84c1fc671b5c1e37a9c34fa078d" 
-style="display: flex; width: 100%; flex: 10000 1 0%;"></iframe>
-```
+## Előkészület 
+Igazából mind1, hogy milyen **JavaScript** vagy egyéb keretrendszerről beszélünk, mert az elv azonos mindennél. Az én példámban Angular app volt a szülő, ezért abban **TypeScript**, a beágyazottban meg **natív JavaScript** kóddal oldottam meg. Ami a fontos, hogy a következő dolgokra lehetőségünk legyen a két alkamazásban:
+- a **szülő** alkalmazásban legyen lehetőségünk referenciát szereznünk az `<iframe>`-re
+- a **beégyazott** alkalmazás kódjához szintén férjünk hozzá és tudjuk kiegészíteni azt. 
 
+Ha ez a két dolog adott, akkor mindent meg tudunk csinálni. :)  
 
-# Működés
-Az Angular alkalmazás és az iframe nem egy domain-en vannak. A [Same Origin Scripting Policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) miatt nem tudnak közvetlenül kommunikálni. Emiatt egy kommunikációs hidat építünk fel, a [window.postMessage()](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) segítségével a **böngészőn keresztül** a következőképp:
-- Az Angular app tartalmaz egy referenciát az iframe-re: `this.kofaxIFrame`.
-  - Az induláskor elkezdünk üzenetet küldeni az iframe felé a `postMessage` segítségével.
-  - Amíg nem érkezik válasz(= amíg nem tölt be az iframe app), addig x. időnként újra próbálkozunk.
-- Az Angular app definiál `HostListener`-t a window.message eseményre.
-  - Ezen az `EventListener`-en keresztül figyeljük hogy az iframe küld-e felénk üzenetet.
+Egyébként:
+- Ha egy domain-en van a két app, akkor közvetlenül "belelátunk" a szülővel az `iframe`-be. 
+- De ha nem, akkor bele kell tudnunk írni logikát a beágyazott kódba. 
+- Ha egyik sem áll módunkban, akkor az a tipikus így járás esete :( (lásd: same origin policy).
+
+## Működés lépései
+Alapveőten valami ilyesmi a kommunikáció általánosságban:
+1. Mindkét alkalmazás felépül, elindul, definiáljuk a listenereket az üzenetek fogadására.
+2. Az **Angular** alkalmazás üzenetet küld az **iframe**-nek, a saját origin információival.
+3. Az **iframe** alkalmazás miután megismerte a saját szülőjét, vissza tud küldeni üzeneteket.
+
+**Viszont!**  
+- A kommunikáció **elsőnek egyirányú**, ugyanis - ha végig gondoljuk nyilván - a beágyazott app nem tudja hogy ő pontosan hova és kibe van beágyazva.
+  - Ezért elsőnek a szülő app-nak kell felvenni a kapcsolatot a beágyazott alkalmazással (mert neki van hivatkozása az iframe-re). 
+- A kommunikáció továbbá **késleltetett**, ugyanis - legalábbis az Angular keretrendszer esetén, de gyanúsan mindenhol is - az `iframe`-be **később tölt be a kód, mint a szülőbe 
+és így később is indul el.**. 
+  - Így ez a kézfogás valójában egy x. időnkénti poll-ozás, az első válaszig.
   
-- A kofax-ba a projekten található, /kofax-config/services.js fájl a 
-  - 192.168.62.91 jelenleg a távoli asztali kapcsolat (INNODOX\Administrator és Pr1n7s0f7)
-  - `Apache Software Foundation \ Tomcat 8.5 \ instance-CCMRuntime-5.1 \ webapps-CM \ start \ doxshare \ jsdoxshare` mappában ül
-  - Ezt a szkriptet hívja be a kofax induláskor, ezért ha ide beillesztünk JS kódot, akkor az bekerül az alkalmazásba.
-- A `services.js` fájlban a kód a következőket csinálja:
-   - `window.onload` rész azért kell, mert meg kell hogy várjuk majd az AJAX lekérések elkapásához a jQuery betöltését. 
-     -  Ebben a függvényben van definiálva a "dokumentum készen áll" response figyelése a backend-től.
-   - Definiálunk szintén egy `eventListener`-t, méghozzá `recieveMessage` néven (és alatta beregisztráljuk)
-     - Ez a függvény az első kapott üzenet során lementi a parent adatait, hogy később tudjon neki értesétíseket küldeni. 
-     
-     
-A működés lépései:
-1. Elindul az **Angular** keret, elkezdi poll-ozni az **iframe**-et, hogy elindult-e már? (*1. fázis*)
-2. A kofax-os **iframe** app elindul, és az egyik ilyen üzenetet elkapja, amire válaszol (*2. fázis*), és lementi a saját szülő **Angular** app-jának az elérhetőségét
-3. A kofax-os **iframe** app, miután betöltött a jQuery, elkezdi hallgatni a saját kommunikációját a szerverrel.
-4. Ha a kofax(**iframe**)-backend kommunikáció során érkezik egy olyan `response`, ami a "dokumentum elkészült" státuszra utal, üzenetet küld az **Angular** app-nak (*3. fázis*).
+Tehát a lépések erre módosulnak:
+1. Az **Angular** alkalmazás felépül, és elkezdi poll-ozni a **iframe**-et egy "kézfogás" üzenettel.
+2. Az **iframe** egyszercsak elindul, és elkapja az egyik ilyen üzenetet.
+3. Az **iframe** a kézfogásra válaszol, az **Angular** app leáll a poll-ozással
+4. készen állnak a kommunikációra.
 
-# FYI
-- Ha valaki nézi a konzolt: 
-  - elsőnek jön egy "webpackOK" message az iframe-ből, ekkor még valójában nincs betöltve a kofax. 
-  - Az Ajax betöltés után próbálunk szólni az iframe-ből az Angular-nak, hogy betöltődtünk: de legtöbb esetben ekkor még nem történ meg a kapcsolat felvétele az Angular-tól az iframe-felé, ezért nem lesz még meg a referenciánk.
-    - (logikailag úgy éreztem fontos látni azért, egyébként ezt el is lehetne hagyni a jelenlegi működés (első üzenet fogadásakor válaszolok a backend-nek) mellett. 
-- a kódban több helyen kikommentezve található pár olyan megoldás, ami a jelenlegi implementációban nem szükséges,  de hasznos / tanulságos.
-  - pl. a natív Ajax kommunikáció hallgatózás, vagy gombok klikkelésére való feliratkozás. 
-- **Fontos**: minden `message recieve` függvényt elvileg azzal kéne kezdeni, hogy a message-ek fogadása során, ha már majd ismerjük a kofax URL-jét, akkor ellenőrizzünk rá, hogy tőle jött-e a message, mert kártékny más alkalmazások itt meg tudják támadni az appot! 
- 
+## Kód
+### 1. Angular
+
+HTML: 
+Angular-os ref az iframe tag-re.
+```html
+    <iframe #iframeRef></iframe>
+```
+
+TS:
+- Elsőként láthatjuk a `@ViewChild` hivatkozás definíciót, ami a rendering utántól érvényes objektumot ad vissza.
+  - Ezért az első üzenetet őfelé az `ngOnInit` függvényben tudjuk küldeni. (ekkor már létezik az `<iframe>` tag, de a benne futó app még nem indult el!)
+- Kommentezve is oda van, de külön kiemelném, hogy fontos, hogy megadjunk egy origin-t, és ne csillagot ha már tudjuk fixen a domain-eket.
+  - Mert egyébként könnyebb nem tudjuk, hogy honnan is jött _valójában_ az üzenet
+- Láthatjuk a `postMessage()` szintaxisát, dev.mozillán szép leírás van róla.
+- Definiálunk egy `HostListener`-t, amely a nekünk küldött üzenet eseményt fogja figyelni.
+  - Ez az "Angular"-os módja egyébként a `document.addEventListener()` JS szintaxisnak (mint látni fogjuk), de az is működne elvileg. . 
+- Indulás után nekilátunk pollozni az iframe-et. 
+  - Mivel ez nem "igazi" pollozás, hanem valójában csak egy Message queue-ba "levél-feladás", így nekünk kell megírni azt, hogy válaszoljon rá az iframe.
+  - **Csak az általunk definiált message-re** állítsuk le a pollozást, mert egyébként jön más üzenet is, amit még nem az iframe-en belül szereplő app küld.
+    - Ezt nem teljesen vágtam én sem, de jött egy "WebpackREADY" vagy valami hasonló üzenet elsőnek mindig, de ekkor még nem futott az iframe-en belül semmi. Az a tippem, hogy keretrendszerek esetén (iframe-en belül a jQuery) ezek küldözgetnek ilyen üzenetet mindenkinek a biztonság kedvéért... passz.   
+```JS
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html'
+})
+export class AppComponent {
+
+  @ViewChild('iframeRef') iframeRef: ElementRef;
+
+  status = 1;
+  iframePollingtimer = null;
+    iframePollingtimer = null;
+    pollingIntervals = 1000;
+
+  @HostListener('window:message', ['$event'])
+  hostListenermessageHandler(event) {
+    this.receiveMessage(event);
+  }
+
+  ngOnInit(): void {
+    this.initStartupPolling();
+  }
+
+ initStartupPolling() {
+    this.iframePollingtimer = setInterval(() => {
+      console.log('Trying to reach iframe...');
+      this.sendMessage();
+    }, this.pollingIntervals);
+  }
+
+  sendMessage() {
+    console.log('Sending message: Angular --> iframe ');
+    // todo: Always specify an exact target origin, not *, when you use postMessage to send data to other windows.
+    // malicious site can change the location of the window without your knowledge,
+    // and therefore it can intercept the data sent using postMessage.
+    this.iframeRef.nativeElement.contentWindow.postMessage('Üzenet az iframe-nek', '*', []);
+  }
+
+ public receiveMessage(event) {
+    // Do we trust the sender of this message?  (might be
+    // different from what we originally opened, for example). todo
+    // if (event.origin !== 'http://example.com')
+    //   return;
+
+    console.log('Received a message From: iframe', event);
+    if (event && event.data && typeof event.data === 'string') {
+      // fontos: itt kell csak megállítani a poll-ozást!
+      clearInterval(this.iframePollingtimer);
+    }
+  }
+}
+
+```
+
+### Iframe kód:
+
+- Ezek a kódok bele vannak definiálva az én konkrét példámnál egy önmagát egyszer meghívó függvénybe. 
+- window.onload azért kell, mert jQuery segítségével hallgatóztam az iframe által elküldött XMLHTTPRequest-ekre.
+  - ez most nem szorosan a problémakör része, csak egy esemény példa hogy lássuk, mikor törénik meg egy event (tehát ez lehetne egy onclick handler is, stb.), ami kiváltásával az iframe majd üzen vissza a szülőnek.
+- definiljuk a send, meg accept függvényeket, és beregisztráljuk őket a `window` alá
+- Tárolnunk kell a `parentReference` és `parentOrigin` értékeket 
+  - vagy fixen beleégetni őket a kódba: igazából úgy érzem az lenne a biztonságosabb, mivel egyébként is hasznos csak azzal leállni bármit kommunikálni, akit megbízunk.
+  - Láthatjuk azt is, hogy - mivel a példában csak egy üzenetet küld az angular - egyből válaszolunk is rá egy "okés, elindultam" messsage-el.
+
+```JS
+ window.onload = function(){
+    console.log("onload complete, Ajax libary is ready to use.")
+
+    $(document).ajaxComplete(function(event, request, settings){
+      if(request.responseJSON.notification.status.toLowerCase() === 'completed'	){
+        console.log("Completed message detected, contacting frontend with the message...");
+        sendDataToParent("code_1_document_created");
+      }
+    });
+  };
+
+
+  var parentReference = null;
+  var parentOrigin = null;
+  function receiveMessage(event)
+  {
+    console.log("Received a message From: Angular", event);
+
+    // if (event.origin !== "http://example.org:8080")
+    // return;
+    // todo: this is crucial for being secure!
+
+    parentReference = event.source;
+    parentOrigin = event.origin;
+    sendDataToParent("code_0_iframe_started");
+  }
+
+  window.addEventListener("message", receiveMessage, false);
+
+
+  function sendDataToParent(text){
+
+    if(parentReference && parentOrigin){
+      console.log("Sending message: iframe --> Angular")
+      parentReference.postMessage(text, parentOrigin, []);
+    } else {
+      console.warn("Parent reference in the iframe is still undefined!");
+    }
+  }
+```
+
+Szóval to wrap it up:
+- A két alkalmazás külön domain-en fut, a szülőbe be van ágyazva egy `iframe`-be a másik. 
+- Két alkalmazás a böngészőn keresztül, `postMessage()` és message `eventListener` segítségével kommunikál.
+- A szülőnek kell kezdeményeznie a kommmunikáció a beágyazott felé.
+- A beágyazott kód késleltetve indul el. 
+- A kommunikáció során illik az origin-t leellenőrizni.
