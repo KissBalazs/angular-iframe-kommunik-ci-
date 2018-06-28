@@ -53,8 +53,9 @@ TS:
 - Elsőként láthatjuk a `@ViewChild` hivatkozás definíciót, ami a rendering utántól érvényes objektumot ad vissza.
   - Ezért az első üzenetet őfelé az `ngOnInit` függvényben tudjuk küldeni. (ekkor már létezik az `<iframe>` tag, de a benne futó app még nem indult el!)
 - Kommentezve is oda van, de külön kiemelném, hogy fontos, hogy megadjunk egy origin-t, és ne csillagot ha már tudjuk fixen a domain-eket.
-  - Mert egyébként könnyebb nem tudjuk, hogy honnan is jött _valójában_ az üzenet
-- Láthatjuk a `postMessage()` szintaxisát, dev.mozillán szép leírás van róla.
+  - Mert egyébként nem tudjuk, hogy honnan is jött _valójában_ az üzenet
+- Láthatjuk a `postMessage()` szintaxisát, [itt egy leírás](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) hozzá.
+  - A példa egyszerűsége miatt csak stringet küldök, de lehetne komplexebb adatokat is, ha megfigyelitek, az üres tömb helyett
 - Definiálunk egy `HostListener`-t, amely a nekünk küldött üzenet eseményt fogja figyelni.
   - Ez az "Angular"-os módja egyébként a `document.addEventListener()` JS szintaxisnak (mint látni fogjuk), de az is működne elvileg. . 
 - Indulás után nekilátunk pollozni az iframe-et. 
@@ -140,8 +141,7 @@ export class AppComponent {
 
   var parentReference = null;
   var parentOrigin = null;
-  function receiveMessage(event)
-  {
+  function receiveMessage(event){
     console.log("Received a message From: Angular", event);
 
     // if (event.origin !== "http://example.org:8080")
@@ -157,7 +157,6 @@ export class AppComponent {
 
 
   function sendDataToParent(text){
-
     if(parentReference && parentOrigin){
       console.log("Sending message: iframe --> Angular")
       parentReference.postMessage(text, parentOrigin, []);
