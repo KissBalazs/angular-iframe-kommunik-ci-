@@ -4,6 +4,8 @@
 Adott egy **Angular** alkalmazás, ami tartalmaz egy `<iframe/>`-et, amely mögött egy külön domainen található alkalmazás fut.
 A feladat: a szülő app és az `iframe`-be **beágyazott** alkalmazás között valósítsunk meg kommunikációt.
 
+![](001.png "a")
+
 **Miért nehéz ez?** 
 Mert az Angular alkalmazás és az iframe nem egy domain-en vannak. A [Same Origin Scripting Policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) 
 miatt nem tudnak közvetlenül kommunikálni. Emiatt egy kommunikációs hidat építünk fel, a [window.postMessage()](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) 
@@ -22,7 +24,7 @@ Egyébként:
 - Ha egyik sem áll módunkban, akkor az a tipikus így járás esete :( (lásd: same origin policy).
 
 ## Működés lépései
-Alapveőten valami ilyesmi a kommunikáció általánosságban:
+Első végiggondolásra valami ilyesminek érezzük a kommunikáció lépéseit:
 1. Mindkét alkalmazás felépül, elindul, definiáljuk a listenereket az üzenetek fogadására.
 2. Az **Angular** alkalmazás üzenetet küld az **iframe**-nek, a saját origin információival.
 3. Az **iframe** alkalmazás miután megismerte a saját szülőjét, vissza tud küldeni üzeneteket.
