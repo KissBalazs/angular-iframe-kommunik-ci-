@@ -4,7 +4,7 @@
 Adott egy **Angular** alkalmazás, ami tartalmaz egy `<iframe/>`-et, amely mögött egy külön domainen található alkalmazás fut.
 A feladat: a szülő app és az `iframe`-be **beágyazott** alkalmazás között valósítsunk meg kommunikációt.
 
-![](001.png "a")
+![Első kép](001.png "a")
 
 **Miért nehéz ez?** 
 Mert az Angular alkalmazás és az iframe nem egy domain-en vannak. A [Same Origin Scripting Policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) 
